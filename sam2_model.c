@@ -20,6 +20,7 @@
 #include <grass/gis.h>
 #include <grass/glocale.h>
 
+#include "progress.h"
 #include "pth_loader.h"
 #include "sam2_model.h"
 
@@ -610,7 +611,6 @@ static void load_encoder(struct sam_model *m, const struct pth_file *pf)
         struct hiera_block *b = &m->blocks[i];
         long d = b->dim, o = b->dim_out, h;
 
-        G_percent(i, m->depth, 5);
         s1[0] = d;
         b->n1w = load_dev_fmt(m, pf, 1, s1, "%s.%d.norm1.weight", p, i);
         b->n1b = load_dev_fmt(m, pf, 1, s1, "%s.%d.norm1.bias", p, i);
@@ -648,7 +648,6 @@ static void load_encoder(struct sam_model *m, const struct pth_file *pf)
             b->db = load_dev_fmt(m, pf, 1, s1, "%s.%d.proj.bias", p, i);
         }
     }
-    G_percent(1, 1, 1);
 
     /* FPN lateral convolutions: convs[0] reads the last (coarsest)
      * stage. */
@@ -1111,14 +1110,16 @@ void sam_encode(struct sam_model *m, const float *img)
     }
 
     for (i = 0; i < m->depth; i++) {
-        G_percent(i, m->depth, 10);
+        /* Report the blocks the device has finished, not the ones
+         * queued: enqueueing all of them takes milliseconds. */
+        clFinish(m->ocl->queue);
+        progress_part(i, m->depth);
         hiera_block(m, &m->blocks[i]);
         if (i == m->stage_end[stage]) {
             neck_stage(m, stage, SAM_PATCH >> stage);
             stage++;
         }
     }
-    G_percent(1, 1, 1);
 
     /* Prompt-independent decoder inputs. Without a mask prompt the
      * dense embedding is no_mask_embed broadcast over the grid. */
