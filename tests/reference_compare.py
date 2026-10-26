@@ -32,8 +32,8 @@ import re
 
 import numpy as np
 import torch
-from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
-from sam2.build_sam import build_sam2
+from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator  # ty: ignore[unresolved-import]
+from sam2.build_sam import build_sam2  # ty: ignore[unresolved-import]
 
 CONFIGS = {
     "tiny": "t",
@@ -88,7 +88,10 @@ def main():
     args = parser.parse_args()
 
     rgb_path = min(glob.glob(os.path.join(args.dump_dir, "crop000_rgb_*.u8")))
-    h, w = map(int, re.search(r"_(\d+)x(\d+)\.u8$", rgb_path).groups())
+    size = re.search(r"_(\d+)x(\d+)\.u8$", rgb_path)
+    if size is None:
+        raise ValueError(f"no crop size in the dump name {rgb_path}")
+    h, w = map(int, size.groups())
     rgb = np.fromfile(rgb_path, dtype=np.uint8).reshape(h, w, 3)
     inp = load_dump(args.dump_dir, "input", (3, 1024, 1024))
     emb = load_dump(args.dump_dir, "embedding", (64, 64, 256))
